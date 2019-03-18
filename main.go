@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
 	"net/http"
+
+	"github.com/gorilla/websocket"
+	uuid "github.com/satori/go.uuid"
 
 	"realtime-chat/services"
 )
@@ -20,7 +21,7 @@ func main() {
 	}
 
 	services.Kafka = services.KafkaClient{
-		Topic: "test0",
+		Topic: "test",
 	}
 
 	//go services.Kafka.Connect()
