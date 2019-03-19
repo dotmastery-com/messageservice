@@ -3,6 +3,7 @@
 The MessageSocketService microservice provides a single websocket endpoint:
 
 - localhost:12345 
+
 A new Client object is created to track every browser connection and these are registered with the ClientManager object.
 Clients will listen for incoming messages and pass them to the ClientManager, which broadcasts them out to all resgistered clients for display.
 Messages are also put onto a Kafka queue for dispersal to other application instances.
