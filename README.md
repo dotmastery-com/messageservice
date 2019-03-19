@@ -14,11 +14,11 @@ We listen for incoming messages on the same kafka queue and give them to the Cli
 Messages are tagged with a unique location code, so we can discard messages that originate locally that we've already broadcast.
 
 
-##Prerequisites
+## Prerequisites
 
 Install Golang as per the install instructions here: https://golang.org/doc/install
 
-##Running the code
+## Running the code
 
 Clone the project and make sure its part of the $GOPATH
 From the command line run go run main.go
