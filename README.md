@@ -21,5 +21,5 @@ Install Golang as per the install instructions here: https://golang.org/doc/inst
 ## Running the code
 
 Clone the project and make sure its part of the $GOPATH
-From the command line run go run main.go
+From the command line run *go run main.go*
 You should see a confirmation message that the service is up and running
