@@ -3,11 +3,10 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"realtime-chat/services"
 
 	"github.com/gorilla/websocket"
 	uuid "github.com/satori/go.uuid"
-
-	"realtime-chat/services"
 )
 
 func main() {
