@@ -37,7 +37,7 @@ func wsPage(res http.ResponseWriter, req *http.Request) {
 		http.NotFound(res, req)
 		return
 	}
-	client := &services.Client{Id: uuid.Must(uuid.NewV4()).String(), Socket: conn, Send: make(chan []byte)}
+	client := &services.Client{Id: uuid.Must(uuid.NewV4(), error).String(), Socket: conn, Send: make(chan []byte)}
 
 	services.Manager.Register <- client
 
