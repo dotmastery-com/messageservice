@@ -14,13 +14,14 @@ type KafkaClient struct {
 	Topic string
 }
 
-var locationID = xid.New().String()
+var LocationID = xid.New().String()
 
 func (kc *KafkaClient) ConsumeTopic(ignoreMessagesFromSource bool, numMessages int) {
 
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": "localhost",
 		"group.id":          "myGroup",
+		"client.id":         "client",
 		"auto.offset.reset": "latest",
 	})
 
@@ -31,6 +32,7 @@ func (kc *KafkaClient) ConsumeTopic(ignoreMessagesFromSource bool, numMessages i
 	log.Println("Consuming from Topic", kc.Topic)
 
 	c.Subscribe(kc.Topic, nil)
+	c.Poll(0)
 
 	n := 0
 	for n < numMessages {
@@ -55,7 +57,7 @@ func (kc *KafkaClient) ConsumeTopic(ignoreMessagesFromSource bool, numMessages i
 
 			//-- we may choose to ignore messages that this location has posted to Kafka since they may have already been broadcast
 			if ignoreMessagesFromSource {
-				if message.SourceLocation != locationID {
+				if message.SourceLocation != LocationID {
 					Manager.Broadcast(msg.Value)
 
 				} else {
@@ -98,7 +100,7 @@ func (kc *KafkaClient) SendMessage(message model.Message) error {
 
 	// Produce messages to topic (asynchronously)
 	message.Id = xid.New().String()
-	message.SourceLocation = locationID
+	message.SourceLocation = LocationID
 	jsonBytes, _ := json.Marshal(message)
 
 	p.Produce(&kafka.Message{

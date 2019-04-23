@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"realtime-chat/services"
@@ -19,7 +20,7 @@ func main() {
 
 }
 
-func wsPage(res http.ResponseWriter, req *http.Request) {
+func WSPage(res http.ResponseWriter, req *http.Request) {
 	conn, error := (&websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}).Upgrade(res, req, nil)
 	if error != nil {
 		http.NotFound(res, req)
@@ -36,6 +37,17 @@ func wsPage(res http.ResponseWriter, req *http.Request) {
 	go client.Write()
 }
 
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	// A very simple health check.
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+
+	// In the future we could report back on the status of our DB, or our cache and include them in the response.
+	response := `{alive: true}`
+	data, _ := json.Marshal(response)
+	w.Write(data)
+}
+
 func startWebServer() {
 
 	services.Manager = &services.WebSocketClientManager{
@@ -47,7 +59,8 @@ func startWebServer() {
 
 	go services.Manager.Start()
 
-	http.HandleFunc("/ws", wsPage)
+	http.HandleFunc("/ws", WSPage)
+	http.HandleFunc("/health-check", healthCheckHandler)
 	http.ListenAndServe(":12345", nil)
 
 }
@@ -58,5 +71,5 @@ func startKafkaClient() {
 		Topic: "messages",
 	}
 
-	go services.Kafka.ConsumeTopic(true)
+	go services.Kafka.ConsumeTopic(true, 10000000)
 }
