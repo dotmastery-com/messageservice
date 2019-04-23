@@ -9,26 +9,14 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+var appName = "User Service"
+
 func main() {
-	fmt.Println("Starting application...")
+	fmt.Printf("Starting %v\n", appName)
 
-	services.Manager = services.ClientManager{
-		Broadcast:  make(chan []byte),
-		Register:   make(chan *services.Client),
-		Unregister: make(chan *services.Client),
-		Clients:    make(map[*services.Client]bool),
-	}
+	startWebServer()
+	startKafkaClient()
 
-	services.Kafka = services.KafkaClient{
-		Topic: "test",
-	}
-
-	//go services.Kafka.Connect()
-	go services.Kafka.ConnectToTopic()
-	go services.Manager.Start()
-
-	http.HandleFunc("/ws", wsPage)
-	http.ListenAndServe(":12345", nil)
 }
 
 func wsPage(res http.ResponseWriter, req *http.Request) {
@@ -37,10 +25,38 @@ func wsPage(res http.ResponseWriter, req *http.Request) {
 		http.NotFound(res, req)
 		return
 	}
-	client := &services.Client{Id: uuid.Must(uuid.NewV4()).String(), Socket: conn, Send: make(chan []byte)}
+	client := &services.Client{
+		Id:     uuid.Must(uuid.NewV4()).String(),
+		Socket: conn,
+		Send:   make(chan []byte)}
 
-	services.Manager.Register <- client
+	services.Manager.Register(client)
 
 	go client.Read()
 	go client.Write()
+}
+
+func startWebServer() {
+
+	services.Manager = &services.WebSocketClientManager{
+		BroadcastChannel:  make(chan []byte),
+		RegisterChannel:   make(chan *services.Client),
+		UnregisterChannel: make(chan *services.Client),
+		Clients:           make(map[*services.Client]bool),
+	}
+
+	go services.Manager.Start()
+
+	http.HandleFunc("/ws", wsPage)
+	http.ListenAndServe(":12345", nil)
+
+}
+
+func startKafkaClient() {
+
+	services.Kafka = services.KafkaClient{
+		Topic: "messages",
+	}
+
+	go services.Kafka.ConsumeTopic(true)
 }

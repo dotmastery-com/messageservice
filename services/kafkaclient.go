@@ -1,84 +1,134 @@
 package services
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"realtime-chat/model"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/rs/xid"
-	"github.com/segmentio/kafka-go"
 )
 
 type KafkaClient struct {
 	Topic string
 }
 
-var locationId = xid.New().String()
+var locationID = xid.New().String()
 
-func (kc *KafkaClient) ConnectToTopic() {
+func (kc *KafkaClient) ConsumeTopic(ignoreMessagesFromSource bool, numMessages int) {
 
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{"3.9.18.99:9092"},
-		Topic:     kc.Topic,
-		Partition: 0,
-		MinBytes:  10e3, // 10KB
-		MaxBytes:  10e6, // 10MB
+	c, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost",
+		"group.id":          "myGroup",
+		"auto.offset.reset": "latest",
 	})
 
-	r.SetOffset(kafka.LastOffset)
+	if err != nil {
+		panic(err)
+	}
 
-	for {
-		m, err := r.ReadMessage(context.Background())
+	log.Println("Consuming from Topic", kc.Topic)
 
-		if err != nil {
-			fmt.Printf("Error reading message from Kafka queue")
-		}
+	c.Subscribe(kc.Topic, nil)
+
+	n := 0
+	for n < numMessages {
 
 		message := model.Message{}
-		err = json.Unmarshal(m.Value, &message)
+
+		msg, err := c.ReadMessage(-1)
+		n++
 
 		if err != nil {
-			fmt.Printf("Unable to parse message %s = %s\n", string(m.Key), string(m.Value))
-		}
 
-		if message.SourceLocation != locationId {
-			Manager.Broadcast <- m.Value
+			// The client will automatically try to recover from all errors.
+			log.Printf("Consumer error: %v (%v)\n", err, msg)
+
 		} else {
-			fmt.Printf("Ignoring message from source location. \n")
+			log.Printf("Message on %s: %s\n", msg.TopicPartition, string(msg.Value))
 
-		}
+			err = json.Unmarshal(msg.Value, &message)
+			if err != nil {
+				log.Printf("Unable to parse messages %s = %s\n", string(msg.Key), string(msg.Value))
+			}
 
-		fmt.Printf("message at offset %d: %s = %s\n", m.Offset, string(m.Key), string(m.Value))
+			//-- we may choose to ignore messages that this location has posted to Kafka since they may have already been broadcast
+			if ignoreMessagesFromSource {
+				if message.SourceLocation != locationID {
+					Manager.Broadcast(msg.Value)
 
-		if err != nil {
-			break
+				} else {
+					log.Printf("Ignoring message from source location. \n")
+
+				}
+			} else {
+				Manager.Broadcast(msg.Value)
+			}
+
 		}
 	}
 
-	r.Close()
+	c.Close()
 
 }
 
 func (kc *KafkaClient) SendMessage(message model.Message) error {
 
-	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{"3.9.18.99:9092"},
-		Topic:   kc.Topic,
-	})
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "localhost"})
+	if err != nil {
+		panic(err)
+	}
 
+	defer p.Close()
+
+	// Delivery report handler for produced messages
+	go func() {
+		for e := range p.Events() {
+			switch ev := e.(type) {
+			case *kafka.Message:
+				if ev.TopicPartition.Error != nil {
+					fmt.Printf("Delivery failed: %v\n", ev.TopicPartition)
+				} else {
+					fmt.Printf("Delivered message to %v\n", ev.TopicPartition)
+				}
+			}
+		}
+	}()
+
+	// Produce messages to topic (asynchronously)
 	message.Id = xid.New().String()
-	message.SourceLocation = locationId
-
-	// Serialize the struct to JSON
+	message.SourceLocation = locationID
 	jsonBytes, _ := json.Marshal(message)
 
-	err := w.WriteMessages(context.Background(),
-		kafka.Message{
-			Key:   []byte(message.Id),
-			Value: []byte(jsonBytes),
-		},
-	)
-	return err
+	p.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &kc.Topic, Partition: kafka.PartitionAny},
+		Value:          []byte(jsonBytes),
+		Key:            []byte(message.Id),
+	}, nil)
 
+	// Wait for message deliveries before shutting down
+	p.Flush(1 * 1000)
+
+	/*	w := kafka.NewWriter(kafka.WriterConfig{
+			Brokers: []string{"3.9.18.99:9092"},
+			Topic:   kc.Topic,
+		})
+
+		message.Id = xid.New().String()
+		message.SourceLocation = locationId
+
+		// Serialize the struct to JSON
+		jsonBytes, _ := json.Marshal(message)
+
+		err := w.WriteMessages(context.Background(),
+			kafka.Message{
+				Key:   []byte(message.Id),
+				Value: []byte(jsonBytes),
+			},
+		)
+		return err
+	*/
+
+	return nil
 }

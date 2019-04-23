@@ -3,18 +3,27 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"realtime-chat/model"
+
+	"github.com/gorilla/websocket"
 )
 
+type ClientManager interface {
+	Broadcast(message []byte)
+	Start()
+	Unregister(c *Client)
+	Register(c *Client)
+}
+
 var Manager ClientManager
+
 var Kafka KafkaClient
 
-type ClientManager struct {
-	Clients    map[*Client]bool
-	Broadcast  chan []byte
-	Register   chan *Client
-	Unregister chan *Client
+type WebSocketClientManager struct {
+	Clients           map[*Client]bool
+	BroadcastChannel  chan []byte
+	RegisterChannel   chan *Client
+	UnregisterChannel chan *Client
 }
 
 type Client struct {
@@ -23,21 +32,36 @@ type Client struct {
 	Send   chan []byte
 }
 
-func (manager *ClientManager) Start() {
+func (manager *WebSocketClientManager) Broadcast(message []byte) {
+
+	manager.send(message, nil)
+}
+
+func (manager *WebSocketClientManager) Unregister(c *Client) {
+
+	manager.UnregisterChannel <- c
+}
+
+func (manager *WebSocketClientManager) Register(c *Client) {
+
+	manager.RegisterChannel <- c
+}
+
+func (manager *WebSocketClientManager) Start() {
 	for {
 		select {
-		case conn := <-manager.Register:
+		case conn := <-manager.RegisterChannel:
 			manager.Clients[conn] = true
 			jsonMessage, _ := json.Marshal(&model.Message{Content: "/A new user has connected."})
 			manager.send(jsonMessage, conn)
-		case conn := <-manager.Unregister:
+		case conn := <-manager.UnregisterChannel:
 			if _, ok := manager.Clients[conn]; ok {
 				close(conn.Send)
 				delete(manager.Clients, conn)
 				jsonMessage, _ := json.Marshal(&model.Message{Content: "/A user has disconnected."})
 				manager.send(jsonMessage, conn)
 			}
-		case message := <-manager.Broadcast:
+		case message := <-manager.BroadcastChannel:
 			for conn := range manager.Clients {
 				select {
 				case conn.Send <- message:
@@ -50,7 +74,7 @@ func (manager *ClientManager) Start() {
 	}
 }
 
-func (manager *ClientManager) send(message []byte, ignore *Client) {
+func (manager *WebSocketClientManager) send(message []byte, ignore *Client) {
 	for conn := range manager.Clients {
 		if conn != ignore {
 			conn.Send <- message
@@ -60,14 +84,15 @@ func (manager *ClientManager) send(message []byte, ignore *Client) {
 
 func (c *Client) Read() {
 	defer func() {
-		Manager.Unregister <- c
+		Manager.Unregister(c)
+
 		c.Socket.Close()
 	}()
 
 	for {
 		_, message, err := c.Socket.ReadMessage()
 		if err != nil {
-			Manager.Unregister <- c
+			Manager.Unregister(c)
 			c.Socket.Close()
 			break
 		}
@@ -75,7 +100,7 @@ func (c *Client) Read() {
 		messagea := model.Message{Content: string(message)}
 		jsonMessage, _ := json.Marshal(&messagea)
 
-		Manager.Broadcast <- jsonMessage
+		Manager.Broadcast(jsonMessage)
 		err = Kafka.SendMessage(messagea)
 
 		if err != nil {
