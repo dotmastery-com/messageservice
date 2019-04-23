@@ -110,25 +110,5 @@ func (kc *KafkaClient) SendMessage(message model.Message) error {
 	// Wait for message deliveries before shutting down
 	p.Flush(1 * 1000)
 
-	/*	w := kafka.NewWriter(kafka.WriterConfig{
-			Brokers: []string{"3.9.18.99:9092"},
-			Topic:   kc.Topic,
-		})
-
-		message.Id = xid.New().String()
-		message.SourceLocation = locationId
-
-		// Serialize the struct to JSON
-		jsonBytes, _ := json.Marshal(message)
-
-		err := w.WriteMessages(context.Background(),
-			kafka.Message{
-				Key:   []byte(message.Id),
-				Value: []byte(jsonBytes),
-			},
-		)
-		return err
-	*/
-
 	return nil
 }
