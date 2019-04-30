@@ -10,7 +10,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-var appName = "User Service"
+var appName = "Message Service"
 
 func main() {
 	fmt.Printf("Starting %v\n", appName)
