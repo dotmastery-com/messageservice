@@ -25,7 +25,7 @@ RUN dep init && dep ensure
 #RUN GOOS=linux GOARCH=amd64 go build
 #RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
 #RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
-go build .
+RUN go build .
 
 FROM alpine:latest
 
