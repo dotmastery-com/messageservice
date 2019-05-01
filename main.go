@@ -27,7 +27,7 @@ func WSPage(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	client := &services.Client{
-		Id:     uuid.Must(uuid.NewV4()).String(),
+		Id:     uuid.Must(uuid.NewV4(), error).String(),
 		Socket: conn,
 		Send:   make(chan []byte)}
 

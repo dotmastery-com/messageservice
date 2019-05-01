@@ -3,18 +3,40 @@
 # We use the official golang image, which contains all the
 # correct build tools and libraries. Notice `as builder`,
 # this gives this container a name that we can reference later on.
-FROM golang:1.9.0 as builder
+#FROM golang:1.10.3-alpine as builder
+
+FROM golang:1.9 as builder
+
+ENV LIBRDKAFKA_VERSION 1.0.0
+
+RUN apt-get -y update \
+        && apt-get install -y --no-install-recommends upx-ucl zip \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+RUN curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
+      tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
+      cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
+      ./configure --prefix /usr && make && make install && make clean && ./configure --clean
 
 # Set our workdir to our current service in the gopath
 WORKDIR /go/src/realtime-chat
 
 # Copy the current code into our workdir
 COPY . .
+#RUN apk update
+#RUN apk add librdkafka
+
 
 # Here we're pulling in godep, which is a dependency manager tool,
 # we're going to use dep instead of go get, to get around a few
 # quirks in how go get works with sub-packages.
-RUN go get -u github.com/golang/dep/cmd/dep
+#RUN apk add git
+#RUN apk add pkg-config
+# Download and install the latest release of dep
+ADD https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 /usr/bin/dep
+RUN chmod +x /usr/bin/dep
+
 
 # Create a dep project, and run `ensure`, which will pull in all
 # of the dependencies within this directory.
