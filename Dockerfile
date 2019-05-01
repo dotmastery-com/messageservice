@@ -24,15 +24,11 @@ WORKDIR /go/src/realtime-chat
 
 # Copy the current code into our workdir
 COPY . .
-#RUN apk update
-#RUN apk add librdkafka
-
 
 # Here we're pulling in godep, which is a dependency manager tool,
 # we're going to use dep instead of go get, to get around a few
 # quirks in how go get works with sub-packages.
-#RUN apk add git
-#RUN apk add pkg-config
+
 # Download and install the latest release of dep
 ADD https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 /usr/bin/dep
 RUN chmod +x /usr/bin/dep
@@ -44,9 +40,6 @@ RUN dep init && dep ensure
 
 # Build the binary, with a few flags which will allow
 # us to run this binary in Alpine.
-#RUN GOOS=linux GOARCH=amd64 go build
-#RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
-#RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
 RUN go build .
 
 FROM alpine:latest
