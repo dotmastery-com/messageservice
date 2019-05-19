@@ -9,15 +9,15 @@ FROM golang:1.9 as builder
 
 ENV LIBRDKAFKA_VERSION 1.0.0
 
-RUN apt-get -y update \
-        && apt-get install -y --no-install-recommends upx-ucl zip \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/*
+#RUN apt-get -y update \
+#       && apt-get install -y --no-install-recommends upx-ucl zip \
+#      && apt-get clean \
+#        && rm -rf /var/lib/apt/lists/*
 
-RUN curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
-      tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
-      cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
-      ./configure --prefix /usr && make && make install && make clean && ./configure --clean
+#RUN curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz && \
+#      tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root && \
+#      cd /root/librdkafka-${LIBRDKAFKA_VERSION} && \
+#      ./configure --prefix /usr && make && make install && make clean && ./configure --clean
 
 # Set our workdir to our current service in the gopath
 WORKDIR /go/src/realtime-chat
@@ -40,7 +40,9 @@ RUN dep init && dep ensure
 
 # Build the binary, with a few flags which will allow
 # us to run this binary in Alpine.
-RUN go build .
+#RUN GOOS=linux GOARCH=amd64 go build
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
+
 
 FROM alpine:latest
 
@@ -61,4 +63,4 @@ COPY --from=builder /go/src/realtime-chat .
 
 
 
-CMD ["./realtime-chat"]
+CMD "./realtime-chat"
